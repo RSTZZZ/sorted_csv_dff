@@ -1,10 +1,5 @@
-from collections import deque
 from queuedwriters.csvWriteQueue import CSVQueueWriter
-import sys
-import os
 import csv
-
-from loguru import logger
 
 
 class iter_wrapper(object):
@@ -147,6 +142,10 @@ class CSVComparer():
 
 
 if __name__ == "__main__":
+
+    import sys
+    import os
+    from loguru import logger
 
     logger.add("test.log")
 
