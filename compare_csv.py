@@ -1,8 +1,8 @@
 from collections import deque
-import csv
-from logging import log
+from queuedwriters.csvWriteQueue import CSVQueueWriter
 import sys
 import os
+import csv
 
 from loguru import logger
 
@@ -33,41 +33,17 @@ class iter_wrapper(object):
         return self._hasnext
 
 
-class ResultQueue():
-    '''
-    Creates a queue for the results. Once the queue reaches max limit, it outputs it to the file.
-    '''
-
-    def __init__(self, file_name, max_size, name):
-        self.file_name = file_name
-        self.results = deque()
-        self.max_size = max_size
-        self.name = name
-
-    def append(self, line):
-
-        if (len(self.results) == self.max_size):
-            self.flush()
-
-        self.results.append(line)
-
-    def flush(self):
-        logger.info(f"Flushing {len(self.results)} from {self.name}.")
-        with open(self.file_name, "a",  newline='') as result_file:
-            csv_writer = csv.writer(result_file)
-            while self.results:
-                row = self.results.popleft()
-                csv_writer.writerow(row)
-
-
 class CSVComparer():
 
     def __init__(self, csv_file_1: str, csv_file_2: str, same_file: str, only_in_file_1: str, only_in_file_2: str):
         self.csv_file_1 = csv_file_1
         self.csv_file_2 = csv_file_2
-        self.same = ResultQueue(same_file, 100000, "same")
-        self.file_1_only = ResultQueue(only_in_file_1, 100000, "file_1_only")
-        self.file_2_only = ResultQueue(only_in_file_2, 100000, "file_2_only")
+        self.same = CSVQueueWriter(
+            "Both", same_file, buffer_size=100000, overwrite_file=True)
+        self.file_1_only = CSVQueueWriter(
+            "file_1_only", only_in_file_1, buffer_size=100000, overwrite_file=True)
+        self.file_2_only = CSVQueueWriter(
+            "file_2_only", only_in_file_2, buffer_size=100000, overwrite_file=True)
 
     def __deal_with_header(self, first_row, second_row):
         # Skip Header
@@ -81,7 +57,7 @@ class CSVComparer():
     def __get_line_and_id(self, line, column_index: int):
         return (line, line[column_index] if column_index is not None else line)
 
-    def __find_expected_line(self, it_line, expected_line, it: iter_wrapper, expected_it: iter_wrapper, it_result_queue: ResultQueue, expected_result_queue: ResultQueue, same_result_queue: ResultQueue, column_index: int):
+    def __find_expected_line(self, it_line, expected_line, it: iter_wrapper, expected_it: iter_wrapper, it_result_queue: CSVQueueWriter, expected_result_queue: CSVQueueWriter, same_result_queue: CSVQueueWriter, column_index: int):
 
         # Add it_line to result queue since it is different
         it_result_queue.append(it_line)
@@ -132,7 +108,7 @@ class CSVComparer():
                     self.__find_expected_line(
                         second_line, first_line, second_it, first_it, self.file_2_only, self.file_1_only, self.same, column_index)
 
-    def __add_to_it(self, it: iter_wrapper, result_queue: ResultQueue):
+    def __add_to_it(self, it: iter_wrapper, result_queue: CSVQueueWriter):
         while it.has_next():
             result_queue.append(it.next())
 
